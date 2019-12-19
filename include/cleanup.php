@@ -484,13 +484,13 @@ function docleanup($forceAll = 0, $printProgress = false)
         printProgress("禁用已封存且N天未登录的帐号");
     }
 
-    $res = sql_query("SELECT id, username FROM users WHERE enabled = 'no' AND downloadpos = 'no' AND last_login = '0000-00-00 00:00:00' AND DATE_ADD(added,INTERVAL 7 DAY) < NOW() AND id IN (SELECT uid FROM needverify WHERE result = -1)");
+    $res = sql_query("SELECT id, username FROM users WHERE enabled = 'no' AND downloadpos = 'no' AND last_login = '0000-00-00 00:00:00' AND DATE_ADD(added,INTERVAL 30 DAY) < NOW() AND id IN (SELECT uid FROM needverify WHERE result = -1)");
     while ($arr = mysql_fetch_array($res)) {
-        write_log("系统删除了帐号 $arr[id] ($arr[username]) (未通过验证帐号超过7天未进行申诉)", 'normal');
+        write_log("系统删除了帐号 $arr[id] ($arr[username]) (未通过验证帐号超过30天未进行申诉)", 'normal');
         sql_query("DELETE FROM users WHERE id = $arr[id]") or sqlerr(__FILE__, __LINE__);
     }
     if ($printProgress) {
-        printProgress("删除超过7天未进行申诉的未通过验证帐号");
+        printProgress("删除超过30天未进行申诉的未通过验证帐号");
     }
 
     // remove VIP status if time's up
