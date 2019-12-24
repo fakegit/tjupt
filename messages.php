@@ -560,8 +560,7 @@ if ($action == "editmailboxes2") {
         header("Location: messages.php?action=editmailboxes");
         exit();
     }
-    if ($action2 == "edit") ;
-    {
+    if ($action2 == "edit") {
         $res = sql_query("SELECT * FROM pmboxes WHERE userid=" . sqlesc($CURUSER['id']));
         if (!$res) {
             stderr($lang_messages['std_error'], $lang_messages['text_no_mailboxes_to_edit']);
