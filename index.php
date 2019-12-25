@@ -10,19 +10,52 @@ if ($showextinfo ['imdb'] == 'yes')
     require_once("douban/douban.class.php");
 if ($_SERVER ["REQUEST_METHOD"] == "POST") {
     if ($showpolls_main == "yes") {
+        $question_id = 0 + $_POST['question_id'];
         $choice = $_POST ["choice"];
-        if ($CURUSER && $choice != "" && $choice < 256 && $choice == floor($choice)) {
-            $res = sql_query("SELECT * FROM polls ORDER BY added DESC LIMIT 1") or sqlerr(__FILE__, __LINE__);
-            $arr = mysql_fetch_assoc($res) or die ($lang_index ['std_no_poll']);
-            $pollid = $arr ["id"];
+        if ($question_id && $choice) {
+            $res = sql_query("SELECT * FROM poll_questions WHERE id = " . sqlesc($question_id) . " AND deadline > NOW()") or sqlerr(__FILE__, __LINE__);
+            $arr = mysql_fetch_assoc($res) or stderr($lang_index ['std_error'], $lang_index ['std_no_poll_id']);
+            $choice_num = $arr ["choice"];
 
-            $hasvoted = get_row_count("pollanswers", "WHERE pollid=" . sqlesc($pollid) . " && userid=" . sqlesc($CURUSER ["id"]));
+            $hasvoted = get_row_count("poll_answers", "WHERE question_id=" . sqlesc($question_id) . " AND user_id=" . sqlesc($CURUSER ["id"]));
             if ($hasvoted)
                 stderr($lang_index ['std_error'], $lang_index ['std_duplicate_votes_denied']);
-            sql_query("INSERT INTO pollanswers VALUES(0, " . sqlesc($pollid) . ", " . sqlesc($CURUSER ["id"]) . ", " . sqlesc($choice) . ")") or sqlerr(__FILE__, __LINE__);
+
+            $available_options = [-1];
+            $res = sql_query("SELECT id FROM poll_options WHERE question_id = " . sqlesc($question_id));
+            while ($arr = mysql_fetch_array($res)) {
+                $available_options[] = $arr['id'];
+            }
+
+            if ($choice_num == 1) {
+                if (is_numeric($choice))
+                    $choice = [$choice];
+                else
+                    stderr($lang_index ['std_error'], $lang_index ['std_option_unselected']);
+            } else {
+                if ($choice == -1) {
+                    $choice = [$choice];
+                } else {
+                    if (!is_array($choice))
+                        stderr($lang_index ['std_error'], $lang_index ['std_option_unselected']);
+                    if (count($choice) > $choice_num)
+                        stderr($lang_index ['std_error'], "超出要求的选项，请重新选择。");
+                }
+            }
+
+            if (in_array(-1, $choice))
+                $choice = [-1];
+
+            $sqls = [];
+            foreach ($choice as $c)
+                if (in_array($c, $available_options))
+                    $sqls[] = "INSERT INTO poll_answers (user_id, question_id, option_id) VALUES ({$CURUSER['id']}, {$question_id}, " . sqlesc(0 + $c) . ")";
+
+            sql_multi_query($sqls);
+
             $Cache->delete_value('current_poll_content');
             $Cache->delete_value('current_poll_result', true);
-            if (mysql_affected_rows() != 1)
+            if (mysql_affected_rows() == 0)
                 stderr($lang_index ['std_error'], $lang_index ['std_vote_not_counted']);
             // add karma
             KPS("+", $pollvote_bonus, $userid);
@@ -216,7 +249,7 @@ if ($showextinfo ['imdb'] == 'yes' && ($showmovies ['hot'] == "yes" || $showmovi
 if ($CURUSER && $showpolls_main == "yes") {
     // Get current poll
     if (!$arr = $Cache->get_value('current_poll_content')) {
-        $res = sql_query("SELECT * FROM polls ORDER BY id DESC LIMIT 1") or sqlerr(__FILE__, __LINE__);
+        $res = sql_query("SELECT * FROM poll_questions ORDER BY id DESC LIMIT 1") or sqlerr(__FILE__, __LINE__);
         $arr = mysql_fetch_array($res);
         $Cache->cache_value('current_poll_content', $arr, 7226);
     }
@@ -241,73 +274,29 @@ if ($CURUSER && $showpolls_main == "yes") {
         $pollid = 0 + $arr ["id"];
         $userid = 0 + $CURUSER ["id"];
         $question = $arr ["question"];
-        $o = array(
-            $arr ["option0"],
-            $arr ["option1"],
-            $arr ["option2"],
-            $arr ["option3"],
-            $arr ["option4"],
-            $arr ["option5"],
-            $arr ["option6"],
-            $arr ["option7"],
-            $arr ["option8"],
-            $arr ["option9"],
-            $arr ["option10"],
-            $arr ["option11"],
-            $arr ["option12"],
-            $arr ["option13"],
-            $arr ["option14"],
-            $arr ["option15"],
-            $arr ["option16"],
-            $arr ["option17"],
-            $arr ["option18"],
-            $arr ["option19"],
-            $arr ["option20"],
-            $arr ["option21"],
-            $arr ["option22"],
-            $arr ["option23"],
-            $arr ["option24"],
-            $arr ["option25"],
-            $arr ["option26"],
-            $arr ["option27"],
-            $arr ["option28"],
-            $arr ["option29"],
-            $arr ["option30"],
-            $arr ["option31"],
-            $arr ["option32"],
-            $arr ["option33"],
-            $arr ["option34"],
-            $arr ["option35"],
-            $arr ["option36"],
-            $arr ["option37"],
-            $arr ["option38"],
-            $arr ["option39"],
-            $arr ["option40"],
-            $arr ["option41"],
-            $arr ["option42"],
-            $arr ["option43"],
-            $arr ["option44"],
-            $arr ["option45"],
-            $arr ["option46"],
-            $arr ["option47"],
-            $arr ["option48"],
-            $arr ["option49"],
-        );
+        $deadline = $arr['deadline'];
+        $choice_num = $arr['choice'];
+        $poll_type = $choice_num == 1 ? "（单选）" : "（多选，最多可选<font color='red'>" . $choice_num . "</font>项）";
+        $res_option = sql_query("SELECT id, option_text FROM poll_options WHERE question_id = {$pollid} ORDER BY id");
+        $options = [];
+        $option_ids = [];
+        while ($arr_option = mysql_fetch_array($res_option))
+            $options[$arr_option['id']] = $arr_option['option_text'];
 
         print ("<table width=\"100%\"><tr><td class=\"text\" align=\"center\">\n");
         print ("<table width=\"59%\" class=\"main\" border=\"1\" cellspacing=\"0\" cellpadding=\"5\"><tr><td class=\"text\" align=\"left\">");
-        print ("<p align=\"center\"><b>" . $question . "</b></p>\n");
+        print ("<p align=\"center\"><b>" . $question . $poll_type . "</b></p>\n");
 
         // Check if user has already voted
-        $res = sql_query("SELECT selection FROM pollanswers WHERE pollid=" . sqlesc($pollid) . " AND userid=" . sqlesc($CURUSER ["id"])) or sqlerr();
-        $voted = mysql_fetch_assoc($res);
-        if ($voted)        // user has already voted
-        {
-            $uservote = $voted ["selection"];
+        $res = sql_query("SELECT id FROM poll_answers WHERE question_id=" . sqlesc($pollid) . " AND user_id=" . sqlesc($CURUSER ["id"])) or sqlerr();
+        $selected = [];
+        while ($voted = mysql_fetch_array($res))
+            $selected[] = $id;
+
+        if ($selected || strtotime($deadline) < time()) {
             $Cache->new_page('current_poll_result', 3652, true);
             if (!$Cache->get_page()) {
-                // we reserve 255 for blank vote.
-                $res = sql_query("SELECT selection FROM pollanswers WHERE pollid=" . sqlesc($pollid) . " AND selection < 50") or sqlerr();
+                $res = sql_query("SELECT option_id FROM poll_answers WHERE question_id=" . sqlesc($pollid) . " AND option_id != -1") or sqlerr();
 
                 $tvotes = mysql_num_rows($res);
 
@@ -318,22 +307,10 @@ if ($CURUSER && $showpolls_main == "yes") {
                 while ($arr2 = mysql_fetch_row($res))
                     $vs [$arr2 [0]]++;
 
-                reset($o);
-                for ($i = 0; $i < count($o); ++$i) {
-                    if ($o [$i])
-                        $os [$i] = array(
-                            $vs [$i],
-                            $o [$i],
-                            $i
-                        );
-                }
-                function srt($a, $b)
-                {
-                    if ($a [0] > $b [0])
-                        return -1;
-                    if ($a [0] < $b [0])
-                        return 1;
-                    return 0;
+                $i = 0;
+                foreach ($options as $id => $text) {
+                    $os[] = array($vs[$id], $text, $i);
+                    $i++;
                 }
 
                 // now os is an array like this: array(array(123, "Option 1",
@@ -369,7 +346,7 @@ if ($CURUSER && $showpolls_main == "yes") {
             $i = 0;
             while ($Cache->next_row()) {
                 echo $Cache->next_part();
-                if ($i == $uservote)
+                if (in_array($i, $selected))
                     echo "class=\"sltbar\"";
                 else
                     echo "class=\"unsltbar\"";
@@ -380,13 +357,17 @@ if ($CURUSER && $showpolls_main == "yes") {
         } else        // user has not voted yet
         {
             print ("<form method=\"post\" action=\"index.php\">\n");
-            for ($i = 0; $i < count($o); $i++) {
-                if ($o[$i] === "")
-                    continue;
-                print ("<input type=\"radio\" name=\"choice\" value=\"" . $i . "\">" . $o[$i] . "<br />\n");
+            foreach ($options as $id => $text) {
+                if ($choice_num == 1) {
+                    print ("<input type=\"radio\" name=\"choice\" value=\"" . $id . "\">" . $text . "<br />\n");
+                } else {
+                    print ("<input type=\"checkbox\" name=\"choice[]\" value=\"" . $id . "\">" . $text . "<br />\n");
+                }
             }
+
             print ("<br />");
-            print ("<input type=\"radio\" name=\"choice\" value=\"255\">" . $lang_index ['radio_blank_vote'] . "<br />\n");
+            print ("<input type=\"radio\" name=\"choice\" value=\"-1\">" . $lang_index ['radio_blank_vote'] . "<br />\n");
+            print("<input type='hidden' value='$pollid' name='question_id'>");
             print ("<p align=\"center\"><input type=\"submit\" class=\"btn\" value=\"" . $lang_index ['submit_vote'] . "\" /></p>");
         }
         print ("</td></tr></table>");

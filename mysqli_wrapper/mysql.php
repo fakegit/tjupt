@@ -696,5 +696,10 @@ if (!extension_loaded('mysql') && !function_exists('mysql_connect')) {
 		return getLinkIdentifier($mysqli)->multi_query($query);
 	}
 
+    function mysql_refresh_multi_query(mysqli $mysqli = null)
+    {
+        while (getLinkIdentifier($mysqli)->more_results()) {
+            getLinkIdentifier($mysqli)->next_result();
+        }
+    }
 }
-?>

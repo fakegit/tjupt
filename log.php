@@ -550,6 +550,7 @@ else {
             die ();
             break;
         case "poll" :
+            stderr("错误", "暂未实现");
             $do = $_GET ["do"];
             $pollid = $_GET ["pollid"];
             $returnto = htmlspecialchars($_GET ["returnto"]);

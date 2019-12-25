@@ -2719,7 +2719,7 @@ function stdhead($title = "", $msgalert = true, $script = "", $place = "") {
         <script type="text/javascript" src="/js/jquery-1.8.0.min.js<?php echo $cssupdatedate ?>"></script>
         <script type="text/javascript" src="/js/tjuptfunctions.js<?php echo $cssupdatedate ?>"></script>
         <?php
-        if ($_SERVER ['PHP_SELF'] == "/edit.php" || $_SERVER ['PHP_SELF'] == "/details.php" || $_SERVER ['PHP_SELF'] == "/mybonusapps.php" || $_SERVER ['PHP_SELF'] == "/mybonus.php" || $_SERVER ['PHP_SELF'] == "/app_luckydraw.php" || $_SERVER ['PHP_SELF'] == "/manage.php" || $_SERVER ['PHP_SELF'] == "/jc_currentbet_L.php") {
+        if ($_SERVER ['PHP_SELF'] == "/makepoll.php" || $_SERVER ['PHP_SELF'] == "/edit.php" || $_SERVER ['PHP_SELF'] == "/details.php" || $_SERVER ['PHP_SELF'] == "/mybonusapps.php" || $_SERVER ['PHP_SELF'] == "/mybonus.php" || $_SERVER ['PHP_SELF'] == "/app_luckydraw.php" || $_SERVER ['PHP_SELF'] == "/manage.php" || $_SERVER ['PHP_SELF'] == "/jc_currentbet_L.php") {
             echo '<link rel="stylesheet" href="js/jquery-ui-css/jquery-ui-1.8.23.custom.css" /><script type="text/javascript" src="js/jquery-ui-1.8.23.custom.min.js"></script><link rel="stylesheet" href="styles/jquery-ui.css" /><script type="text/javascript" src="js/jquery-ui-timepicker-addon.js"></script>';
         }
 

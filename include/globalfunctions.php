@@ -118,7 +118,9 @@ function sql_multi_query($query)
 {
     global $query_name;
     $query_name[] = $query;
-    return mysql_multi_query(implode(';', $query));
+    mysql_multi_query(implode(';', $query) . ";");
+    mysql_refresh_multi_query();
+    return True;
 }
 
 function sqlesc($value)
