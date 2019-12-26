@@ -550,7 +550,6 @@ else {
             die ();
             break;
         case "poll" :
-            stderr("错误", "暂未实现");
             $do = $_GET ["do"];
             $pollid = $_GET ["pollid"];
             $returnto = htmlspecialchars($_GET ["returnto"]);
@@ -564,8 +563,7 @@ else {
                 if (!$sure)
                     stderr($lang_log ['std_delete_poll'], $lang_log ['std_delete_poll_confirmation'] . "<a href=log.php?action=poll&do=delete&pollid=$pollid&returnto=$returnto&sure=1>" . $lang_log ['std_here_if_sure'], false);
 
-                sql_query("DELETE FROM pollanswers WHERE pollid = $pollid") or sqlerr();
-                sql_query("DELETE FROM polls WHERE id = $pollid") or sqlerr();
+                sql_query("UPDATE poll_questions SET deleted = 1 WHERE id = $pollid") or sqlerr();
                 $Cache->delete_value('current_poll_content');
                 $Cache->delete_value('current_poll_result', true);
                 if ($returnto == "main")
@@ -575,80 +573,24 @@ else {
                 die ();
             }
 
-            $rows = sql_query("SELECT COUNT(*) FROM polls") or sqlerr();
+            $rows = sql_query("SELECT COUNT(*) FROM poll_questions WHERE deleted = 0") or sqlerr();
             $row = mysql_fetch_row($rows);
             $pollcount = $row [0];
             if ($pollcount == 0)
                 stderr($lang_log ['std_sorry'], $lang_log ['std_no_polls']);
-            $polls = sql_query("SELECT * FROM polls ORDER BY id DESC LIMIT 1," . ($pollcount - 1)) or sqlerr();
+            elseif ($pollcount == 1)
+                stderr($lang_log ['std_sorry'], "仅有一个进行中的投票，请前往首页查看。");
+            $polls = sql_query("SELECT * FROM poll_questions WHERE deleted = 0 ORDER BY id DESC LIMIT 1," . ($pollcount - 1)) or sqlerr();
             stdhead($lang_log ['head_previous_polls']);
             logmenu("poll");
             print ("<table border=1 cellspacing=0 width=940 cellpadding=5>\n");
-            // print("<tr><td class=colhead
-            // align=center>".$lang_log['text_previous_polls']."</td></tr>\n");
-
-            function srt($a, $b)
-            {
-                if ($a [0] > $b [0])
-                    return -1;
-                if ($a [0] < $b [0])
-                    return 1;
-                return 0;
-            }
 
             while ($poll = mysql_fetch_assoc($polls)) {
-                $o = array(
-                    $poll ["option0"],
-                    $poll ["option1"],
-                    $poll ["option2"],
-                    $poll ["option3"],
-                    $poll ["option4"],
-                    $poll ["option5"],
-                    $poll ["option6"],
-                    $poll ["option7"],
-                    $poll ["option8"],
-                    $poll ["option9"],
-                    $poll ["option10"],
-                    $poll ["option11"],
-                    $poll ["option12"],
-                    $poll ["option13"],
-                    $poll ["option14"],
-                    $poll ["option15"],
-                    $poll ["option16"],
-                    $poll ["option17"],
-                    $poll ["option18"],
-                    $poll ["option19"],
-                    $poll ["option20"],
-                    $poll ["option21"],
-                    $poll ["option22"],
-                    $poll ["option23"],
-                    $poll ["option24"],
-                    $poll ["option25"],
-                    $poll ["option26"],
-                    $poll ["option27"],
-                    $poll ["option28"],
-                    $poll ["option29"],
-                    $poll ["option30"],
-                    $poll ["option31"],
-                    $poll ["option32"],
-                    $poll ["option33"],
-                    $poll ["option34"],
-                    $poll ["option35"],
-                    $poll ["option36"],
-                    $poll ["option37"],
-                    $poll ["option38"],
-                    $poll ["option39"],
-                    $poll ["option40"],
-                    $poll ["option41"],
-                    $poll ["option42"],
-                    $poll ["option43"],
-                    $poll ["option44"],
-                    $poll ["option45"],
-                    $poll ["option46"],
-                    $poll ["option47"],
-                    $poll ["option48"],
-                    $poll ["option49"],
-                );
+                $option_res = sql_query("SELECT * FROM poll_options WHERE question_id = $poll[id]");
+                $options = [];
+                while ($option_arr = mysql_fetch_array($option_res)) {
+                    $options[$option_arr['id']] = $option_arr['option_text'];
+                }
 
                 print ("<tr><td align=center>\n");
 
@@ -670,7 +612,7 @@ else {
 
                 print ("<p align=center><b>" . $poll ["question"] . "</b></p>");
 
-                $pollanswers = sql_query("SELECT selection FROM pollanswers WHERE pollid=" . $poll ["id"] . " AND  selection < 50") or sqlerr();
+                $pollanswers = sql_query("SELECT option_id FROM poll_answers WHERE question_id=" . $poll ["id"] . " AND  option_id != -1") or sqlerr();
 
                 $tvotes = mysql_num_rows($pollanswers);
 
@@ -682,24 +624,14 @@ else {
                 while ($pollanswer = mysql_fetch_row($pollanswers))
                     $vs [$pollanswer [0]] += 1;
 
-                reset($o);
-                for ($i = 0; $i < count($o); ++$i)
-                    if ($o [$i])
-                        $os [$i] = array(
-                            $vs [$i],
-                            $o [$i]
-                        );
-
-                print ("<table width=100% class=main border=0 cellspacing=0 cellpadding=0>\n");
-                $i = 0;
-                while ($a = $os [$i]) {
+                foreach ($options as $option_id => $text){
                     if ($tvotes > 0)
-                        $p = round($a [0] / $tvotes * 100);
+                        $p = round($vs[$option_id] / $tvotes * 100);
                     else
                         $p = 0;
-                    print ("<tr><td class=embedded>" . $a [1] . "&nbsp;&nbsp;</td><td class=\"embedded nowrap\">" . "<img class=\"bar_end\" src=\"pic/trans.gif\" alt=\"\" /><img class=\"unsltbar\" src=\"pic/trans.gif\" style=\"width: " . ($p * 3) . "px\" /><img class=\"bar_end\" src=\"pic/trans.gif\" alt=\"\" /> $p%</td></tr>\n");
-                    ++$i;
+                    print ("<tr><td class=embedded>" . $text . "&nbsp;&nbsp;</td><td class=\"embedded nowrap\">" . "<img class=\"bar_end\" src=\"pic/trans.gif\" alt=\"\" /><img class=\"unsltbar\" src=\"pic/trans.gif\" style=\"width: " . ($p * 3) . "px\" /><img class=\"bar_end\" src=\"pic/trans.gif\" alt=\"\" /> $p%</td></tr>\n");
                 }
+                print ("<table width=100% class=main border=0 cellspacing=0 cellpadding=0>\n");
                 print ("</table>\n");
                 $tvotes = number_format($tvotes);
                 print ("<p align=center>" . $lang_log ['text_votes'] . "$tvotes</p>\n");

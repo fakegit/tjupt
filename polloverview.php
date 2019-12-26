@@ -23,7 +23,7 @@ if ($pollid) {
         $option_res = sql_query("SELECT * FROM poll_options WHERE question_id = $pollid");
 
         $o = [];
-        while($option_arr = mysql_fetch_array($option_res)){
+        while ($option_arr = mysql_fetch_array($option_res)) {
             $o[$option_arr['id']] = $option_arr['option_text'];
         }
         $added = gettime($poll['added_at']);
@@ -60,7 +60,7 @@ if ($pollid) {
     }
     stdfoot();
 } else {
-    $res = sql_query("SELECT id, added_at, question FROM poll_questions ORDER BY id DESC") or sqlerr();
+    $res = sql_query("SELECT id, added_at, question, deleted FROM poll_questions ORDER BY id DESC") or sqlerr();
     if (mysql_num_rows($res) == 0)
         stderr($lang_polloverview['std_error'], $lang_polloverview['text_no_users_voted']);
     stdhead($lang_polloverview['head_poll_overview']);
@@ -70,7 +70,8 @@ if ($pollid) {
         "<td class=colhead align=center><nobr>" . $lang_polloverview['col_id'] . "</nobr></td><td class=colhead>" . $lang_polloverview['col_added'] . "</td><td class=colhead><nobr>" . $lang_polloverview['col_question'] . "</nobr></td></tr>\n");
     while ($poll = mysql_fetch_assoc($res)) {
         $added = gettime($poll['added_at']);
-        print("<tr><td align=center><a href=\"polloverview.php?id=" . $poll['id'] . "\">" . $poll['id'] . "</a></td><td>" . $added . "</td><td><a href=\"polloverview.php?id=" . $poll['id'] . "\">" . $poll['question'] . "</a></td></tr>\n");
+        $deleted = $poll['deleted'] == 1 ? "<font color='red'>[已删除]</font>" : "";
+        print("<tr><td align=center><a href=\"polloverview.php?id=" . $poll['id'] . "\">" . $poll['id'] . "</a></td><td>" . $added . "</td><td><a href=\"polloverview.php?id=" . $poll['id'] . "\">" . $poll['question'] . $deleted . "</a></td></tr>\n");
     }
     print("</table>\n");
     stdfoot();

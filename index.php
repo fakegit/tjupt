@@ -13,7 +13,7 @@ if ($_SERVER ["REQUEST_METHOD"] == "POST") {
         $question_id = 0 + $_POST['question_id'];
         $choice = $_POST ["choice"];
         if ($question_id && $choice) {
-            $res = sql_query("SELECT * FROM poll_questions WHERE id = " . sqlesc($question_id) . " AND deadline > NOW()") or sqlerr(__FILE__, __LINE__);
+            $res = sql_query("SELECT * FROM poll_questions WHERE id = " . sqlesc($question_id) . " AND deadline > NOW() AND deleted = 0") or sqlerr(__FILE__, __LINE__);
             $arr = mysql_fetch_assoc($res) or stderr($lang_index ['std_error'], $lang_index ['std_no_poll_id']);
             $choice_num = $arr ["choice"];
 
@@ -249,7 +249,7 @@ if ($showextinfo ['imdb'] == 'yes' && ($showmovies ['hot'] == "yes" || $showmovi
 if ($CURUSER && $showpolls_main == "yes") {
     // Get current poll
     if (!$arr = $Cache->get_value('current_poll_content')) {
-        $res = sql_query("SELECT * FROM poll_questions ORDER BY id DESC LIMIT 1") or sqlerr(__FILE__, __LINE__);
+        $res = sql_query("SELECT * FROM poll_questions WHERE deleted = 0 ORDER BY id DESC LIMIT 1") or sqlerr(__FILE__, __LINE__);
         $arr = mysql_fetch_array($res);
         $Cache->cache_value('current_poll_content', $arr, 7226);
     }
@@ -279,7 +279,6 @@ if ($CURUSER && $showpolls_main == "yes") {
         $poll_type = $choice_num == 1 ? "（单选）" : "（多选，最多可选<font color='red'>" . $choice_num . "</font>项）";
         $res_option = sql_query("SELECT id, option_text FROM poll_options WHERE question_id = {$pollid} ORDER BY id");
         $options = [];
-        $option_ids = [];
         while ($arr_option = mysql_fetch_array($res_option))
             $options[$arr_option['id']] = $arr_option['option_text'];
 
@@ -288,10 +287,10 @@ if ($CURUSER && $showpolls_main == "yes") {
         print ("<p align=\"center\"><b>" . $question . $poll_type . "</b></p>\n");
 
         // Check if user has already voted
-        $res = sql_query("SELECT id FROM poll_answers WHERE question_id=" . sqlesc($pollid) . " AND user_id=" . sqlesc($CURUSER ["id"])) or sqlerr();
+        $res = sql_query("SELECT option_id FROM poll_answers WHERE question_id=" . sqlesc($pollid) . " AND user_id=" . sqlesc($CURUSER ["id"])) or sqlerr();
         $selected = [];
         while ($voted = mysql_fetch_array($res))
-            $selected[] = $id;
+            $selected[] = $voted['option_id'];
 
         if ($selected || strtotime($deadline) < time()) {
             $Cache->new_page('current_poll_result', 3652, true);
@@ -346,7 +345,7 @@ if ($CURUSER && $showpolls_main == "yes") {
             $i = 0;
             while ($Cache->next_row()) {
                 echo $Cache->next_part();
-                if (in_array($i, $selected))
+                if (in_array(array_keys($options)[$i], $selected))
                     echo "class=\"sltbar\"";
                 else
                     echo "class=\"unsltbar\"";

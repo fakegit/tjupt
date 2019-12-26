@@ -13,7 +13,7 @@ $option_id = $_GET['option'];
 
 if ($action == "edit") {
     int_check($pollid, true);
-    $res = sql_query("SELECT * FROM poll_questions WHERE id = $pollid LIMIT 1") or sqlerr(__FILE__, __LINE__);
+    $res = sql_query("SELECT * FROM poll_questions WHERE id = $pollid AND deleted = 0 LIMIT 1") or sqlerr(__FILE__, __LINE__);
     if (mysql_num_rows($res) == 0)
         stderr($lang_makepoll['std_error'], $lang_makepoll['std_no_poll_id']);
     $poll_question = mysql_fetch_array($res);
@@ -99,7 +99,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
 stdhead($lang_makepoll['head_new_poll']);
 // Warn if current poll is less than 3 days old
-$res = sql_query("SELECT question, added_at FROM poll_questions ORDER BY added_at DESC LIMIT 1") or sqlerr();
+$res = sql_query("SELECT question, added_at FROM poll_questions WHERE deleted = 0 ORDER BY added_at DESC LIMIT 1") or sqlerr();
 $arr = mysql_fetch_assoc($res);
 if ($arr) {
     $hours = floor((time() - strtotime($arr["added_at"])) / 3600);
